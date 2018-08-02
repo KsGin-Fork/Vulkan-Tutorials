@@ -7,4 +7,4 @@ link_directories(/usr/lib)
 
 link_libraries(libvulkan.so libSDL2.so)
 
-add_executable(1-load-vulkan-lib 1-load-vulkan-lib/main.cpp)
+add_executable(1-test-vulkan-env 1-test-vulkan-env/main.cpp)
