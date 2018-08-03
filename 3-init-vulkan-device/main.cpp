@@ -10,7 +10,7 @@
 
 using namespace std;
 
-const char *title = "Init Vulkan Window";
+const char *title = "Init Vulkan Device";
 
 int main() {
 
