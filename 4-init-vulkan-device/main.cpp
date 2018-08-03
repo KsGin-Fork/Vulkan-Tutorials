@@ -2,7 +2,6 @@
 // Created by ksgin on 18-8-3.
 //
 
-#define VK_USE_PLATFORM_XCB_KHR
 #include <vulkan/vulkan.h>
 #include <assert.h>
 #include <vector>
