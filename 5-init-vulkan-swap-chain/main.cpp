@@ -19,6 +19,16 @@ SDL_Window *window;
 
 int main() {
 
+    // 初始化 SDL
+    assert(SDL_Init(SDL_INIT_EVERYTHING) != -1);
+    window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screenWidth, screenHeight,
+                              SDL_WINDOW_RESIZABLE);
+    assert(window);
+
+    SDL_SysWMinfo sdl_sysWMinfo;
+    SDL_GetWindowWMInfo(window, &sdl_sysWMinfo);
+
+    // 实例相关操作
     u_int32_t extensions_count = 0;
     assert(vkEnumerateInstanceExtensionProperties(nullptr, &extensions_count, nullptr) == VK_SUCCESS &&
            extensions_count != 0);
@@ -62,6 +72,16 @@ int main() {
     VkInstance vk_instance;
     assert(vkCreateInstance(&vkIci, nullptr, &vk_instance) == VK_SUCCESS);
 
+    // 创建 Surface
+    VkXlibSurfaceCreateInfoKHR vSci{
+            VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+            nullptr,
+            0,
+            sdl_sysWMinfo.info.x11.display,
+            sdl_sysWMinfo.info.x11.window
+    };
+
+    // 设备相关
     uint32_t num_devices = 8;
     assert(vkEnumeratePhysicalDevices(vk_instance, &num_devices, nullptr) == VK_SUCCESS);
     vector<VkPhysicalDevice> vk_physical_devices(num_devices);
@@ -96,6 +116,27 @@ int main() {
     }
     assert(vk_physical_device_index >= 0);
 
+    // 检查设备扩展
+    u_int32_t device_extensions_count = 0;
+    assert(vkEnumerateDeviceExtensionProperties(vk_physical_devices[vk_physical_device_index], nullptr,
+                                                &device_extensions_count, nullptr) == VK_SUCCESS &&
+           extensions_count != 0);
+    vector<VkExtensionProperties> vk_device_extension_properties(device_extensions_count);
+    assert(vkEnumerateDeviceExtensionProperties(vk_physical_devices[vk_physical_device_index], nullptr,
+                                                &device_extensions_count, &vk_device_extension_properties[0]) ==
+           VK_SUCCESS && extensions_count != 0);
+    vector<const char *> device_extensions = {
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
+    for (auto &extension : device_extensions) {
+        for (auto &vk_extension_propertie : vk_device_extension_properties) {
+            if (strcmp(vk_extension_propertie.extensionName, extension) == 0)
+                break;
+        }
+    }
+
+
+
     vector<float> queue_priorities = {1.0f};
     VkDeviceQueueCreateInfo vDqci{
             VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -123,44 +164,8 @@ int main() {
     VkQueue vk_queue;
     vkGetDeviceQueue(vk_device, static_cast<uint32_t>(vk_queue_family_propertie_index), 0, &vk_queue);
 
-    ///////////////////////////////////////// 以下为新增内容 ////////////////////////////////////////////////////////////////////
-
-    assert(SDL_Init(SDL_INIT_EVERYTHING) != -1);
-    window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screenWidth, screenHeight,
-                              SDL_WINDOW_RESIZABLE);
-    assert(window);
-
-    SDL_SysWMinfo sdl_sysWMinfo;
-    SDL_GetWindowWMInfo(window, &sdl_sysWMinfo);
-
-    VkXlibSurfaceCreateInfoKHR vSci{
-            VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
-            nullptr,
-            0,
-            sdl_sysWMinfo.info.x11.display,
-            sdl_sysWMinfo.info.x11.window
-    };
-
     VkSurfaceKHR vk_surface;
     assert(vkCreateXlibSurfaceKHR(vk_instance, &vSci, nullptr, &vk_surface) == VK_SUCCESS);
-
-    u_int32_t device_extensions_count = 0;
-    assert(vkEnumerateDeviceExtensionProperties(vk_physical_devices[vk_physical_device_index], nullptr,
-                                                &device_extensions_count, nullptr) == VK_SUCCESS &&
-           extensions_count != 0);
-    vector<VkExtensionProperties> vk_device_extension_properties(device_extensions_count);
-    assert(vkEnumerateDeviceExtensionProperties(vk_physical_devices[vk_physical_device_index], nullptr,
-                                                &device_extensions_count, &vk_device_extension_properties[0]) ==
-           VK_SUCCESS && extensions_count != 0);
-    vector<const char *> device_extensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
-    for (auto &extension : device_extensions) {
-        for (auto &vk_extension_propertie : vk_device_extension_properties) {
-            if (strcmp(vk_extension_propertie.extensionName, extension) == 0)
-                break;
-        }
-    }
 
 
     if (vk_device != VK_NULL_HANDLE) {
