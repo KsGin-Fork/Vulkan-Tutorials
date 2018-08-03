@@ -1,11 +1,8 @@
 //
 // Created by ksgin on 18-8-3.
 //
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_syswm.h>
 
 #define VK_USE_PLATFORM_XCB_KHR
-
 #include <vulkan/vulkan.h>
 #include <assert.h>
 #include <vector>
@@ -13,23 +10,9 @@
 
 using namespace std;
 
-xcb_window_t window;
 const char *title = "Init Vulkan Window";
-const int screenWidth = 1024, screenHeight = 768;
 
 int main() {
-    assert(SDL_Init(SDL_INIT_EVERYTHING) != -1);
-    SDL_Window *sdl_window = SDL_CreateWindow(
-            title,
-            SDL_WINDOWPOS_CENTERED,
-            SDL_WINDOWPOS_CENTERED,
-            screenWidth,
-            screenHeight,
-            SDL_WINDOW_RESIZABLE);
-    assert(sdl_window);
-
-    SDL_SysWMinfo sdl_sysWMinfo;
-    assert(!SDL_GetWindowWMInfo(sdl_window, &sdl_sysWMinfo));
 
     VkApplicationInfo vkAppi{
             VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -125,6 +108,5 @@ int main() {
         vkDestroyInstance(vk_instance, nullptr);
     }
 
-    free(sdl_window);
     return 0;
 }
