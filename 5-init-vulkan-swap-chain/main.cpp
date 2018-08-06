@@ -41,28 +41,33 @@ int main() {
             VK_KHR_XLIB_SURFACE_EXTENSION_NAME
     };
 
+
     for (auto &extension : extensions) {
-        for (auto &vkExtensionPropertie : vkExtensionProperties) {
-            if (strcmp(vkExtensionPropertie.extensionName, extension) == 0)
-                break;
-        }
+        auto check = ([extension, vkExtensionProperties]() -> bool {
+            for (auto &vkExtensionPropertie : vkExtensionProperties) {
+                if (strcmp(vkExtensionPropertie.extensionName, extension) == 0)
+                    return true;
+            }
+            return false;
+        }());
+        assert(check);
     }
 
-    VkApplicationInfo vkAppi{
+    VkApplicationInfo vkApplicationInfo{
             VK_STRUCTURE_TYPE_APPLICATION_INFO,
             nullptr,
             title,
-            VK_VERSION_1_0,
+            VK_MAKE_VERSION(1, 0, 0),
             title,
-            VK_VERSION_1_0,
-            VK_API_VERSION_1_0
+            VK_MAKE_VERSION(1, 0, 0),
+            VK_MAKE_VERSION(1, 0, 0),
     };
 
-    VkInstanceCreateInfo vkIci{
+    VkInstanceCreateInfo vkInstanceCreateInfo{
             VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,    // sType
             nullptr,   // pNext
             0,
-            &vkAppi,
+            &vkApplicationInfo,
             0,
             nullptr,
             static_cast<uint32_t>(extensions.size()),
@@ -70,10 +75,10 @@ int main() {
     };
 
     VkInstance vkInstance;
-    assert(vkCreateInstance(&vkIci, nullptr, &vkInstance) == VK_SUCCESS);
+    assert(vkCreateInstance(&vkInstanceCreateInfo, nullptr, &vkInstance) == VK_SUCCESS);
 
     // 创建 Surface
-    VkXlibSurfaceCreateInfoKHR vSci{
+    VkXlibSurfaceCreateInfoKHR vkXlibSurfaceCreateInfo{
             VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
             nullptr,
             0,
@@ -81,7 +86,7 @@ int main() {
             sdlSysWMinfo.info.x11.window
     };
     VkSurfaceKHR vkSurface;
-    assert(vkCreateXlibSurfaceKHR(vkInstance, &vSci, nullptr, &vkSurface) == VK_SUCCESS);
+    assert(vkCreateXlibSurfaceKHR(vkInstance, &vkXlibSurfaceCreateInfo, nullptr, &vkSurface) == VK_SUCCESS);
 
     // 设备相关
     uint32_t numDevices = 8;
@@ -163,9 +168,9 @@ int main() {
         }
     }
 
-    vector<VkDeviceQueueCreateInfo> vDqcis;
+    vector<VkDeviceQueueCreateInfo> vkDeviceQueueCreateInfos;
     vector<float> queuePriorities = {1.0f};
-    vDqcis.push_back({
+    vkDeviceQueueCreateInfos.push_back({
                              VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                              nullptr,
                              0,
@@ -174,7 +179,7 @@ int main() {
                              &queuePriorities[0]
                      });
     if (vkGraphicsQueueFamilyIndex != vkPresentQueueFamilyIndex) {
-        vDqcis.push_back({
+        vkDeviceQueueCreateInfos.push_back({
                                  VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                                  nullptr,
                                  0,
@@ -184,12 +189,12 @@ int main() {
                          });
     }
 
-    VkDeviceCreateInfo vDci{
+    VkDeviceCreateInfo vkDeviceCreateInfo{
             VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             nullptr,
             0,
-            static_cast<uint32_t>(vDqcis.size()),
-            &vDqcis[0],
+            static_cast<uint32_t>(vkDeviceQueueCreateInfos.size()),
+            &vkDeviceQueueCreateInfos[0],
             0,
             nullptr,
             static_cast<uint32_t>(deviceExtensions.size()),
@@ -198,20 +203,21 @@ int main() {
     };
 
     VkDevice vkDevice;
-    assert(vkCreateDevice(vkPhysicalDevices[vkPhysicalDeviceIndex], &vDci, nullptr, &vkDevice) == VK_SUCCESS);
+    assert(vkCreateDevice(vkPhysicalDevices[vkPhysicalDeviceIndex], &vkDeviceCreateInfo, nullptr, &vkDevice) ==
+           VK_SUCCESS);
 
     VkQueue vkQueue;
     vkGetDeviceQueue(vkDevice, vkGraphicsQueueFamilyIndex, 0, &vkQueue);
 
-    VkSemaphoreCreateInfo vShci{
+    VkSemaphoreCreateInfo vkSemaphoreCreateInfo{
             VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             nullptr,
             0
     };
 
     VkSemaphore imageAvailableSemaphore, renderFinishSemaphore;
-    assert(vkCreateSemaphore(vkDevice, &vShci, nullptr, &imageAvailableSemaphore) == VK_SUCCESS);
-    assert(vkCreateSemaphore(vkDevice, &vShci, nullptr, &renderFinishSemaphore) == VK_SUCCESS);
+    assert(vkCreateSemaphore(vkDevice, &vkSemaphoreCreateInfo, nullptr, &imageAvailableSemaphore) == VK_SUCCESS);
+    assert(vkCreateSemaphore(vkDevice, &vkSemaphoreCreateInfo, nullptr, &renderFinishSemaphore) == VK_SUCCESS);
 
     VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
     assert(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkPhysicalDevices[vkPhysicalDeviceIndex], vkSurface,
@@ -250,7 +256,7 @@ int main() {
     }
 
     VkSwapchainKHR vkOldSwapchain = VK_NULL_HANDLE;
-    VkSwapchainCreateInfoKHR vSwci{
+    VkSwapchainCreateInfoKHR vkSwapchainCreateInfoKHR{
             VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
             nullptr,
             0,
@@ -272,13 +278,13 @@ int main() {
     };
 
     VkSwapchainKHR vkSwapchain;
-    assert(vkCreateSwapchainKHR(vkDevice, &vSwci, nullptr, &vkSwapchain));
+    assert(vkCreateSwapchainKHR(vkDevice, &vkSwapchainCreateInfoKHR, nullptr, &vkSwapchain));
 
     if (vkOldSwapchain != VK_NULL_HANDLE) vkDestroySwapchainKHR(vkDevice, vkOldSwapchain, nullptr);
 
 
     cout << "创建交换链成功" << endl;
-    
+
 
     if (vkSwapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(vkDevice, vkSwapchain, nullptr);
