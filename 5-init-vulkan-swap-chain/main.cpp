@@ -25,16 +25,16 @@ int main() {
                               SDL_WINDOW_RESIZABLE);
     assert(window);
 
-    SDL_SysWMinfo sdl_sysWMinfo;
-    SDL_GetWindowWMInfo(window, &sdl_sysWMinfo);
+    SDL_SysWMinfo sdlSysWMinfo;
+    SDL_GetWindowWMInfo(window, &sdlSysWMinfo);
 
     // 实例相关操作
-    u_int32_t extensions_count = 0;
-    assert(vkEnumerateInstanceExtensionProperties(nullptr, &extensions_count, nullptr) == VK_SUCCESS &&
-           extensions_count != 0);
-    vector<VkExtensionProperties> vk_extension_properties(extensions_count);
-    assert(vkEnumerateInstanceExtensionProperties(nullptr, &extensions_count, &vk_extension_properties[0]) ==
-           VK_SUCCESS && extensions_count != 0);
+    Uint32 extensionsCount = 0;
+    assert(vkEnumerateInstanceExtensionProperties(nullptr, &extensionsCount, nullptr) == VK_SUCCESS &&
+           extensionsCount != 0);
+    vector<VkExtensionProperties> vkExtensionProperties(extensionsCount);
+    assert(vkEnumerateInstanceExtensionProperties(nullptr, &extensionsCount, &vkExtensionProperties[0]) ==
+           VK_SUCCESS && extensionsCount != 0);
 
     vector<const char *> extensions{
             VK_KHR_SURFACE_EXTENSION_NAME,
@@ -42,8 +42,8 @@ int main() {
     };
 
     for (auto &extension : extensions) {
-        for (auto &vk_extension_propertie : vk_extension_properties) {
-            if (strcmp(vk_extension_propertie.extensionName, extension) == 0)
+        for (auto &vkExtensionPropertie : vkExtensionProperties) {
+            if (strcmp(vkExtensionPropertie.extensionName, extension) == 0)
                 break;
         }
     }
@@ -55,7 +55,7 @@ int main() {
             VK_VERSION_1_0,
             title,
             VK_VERSION_1_0,
-            VK_API_VERSION_1_1
+            VK_API_VERSION_1_0
     };
 
     VkInstanceCreateInfo vkIci{
@@ -69,112 +69,228 @@ int main() {
             &extensions[0]
     };
 
-    VkInstance vk_instance;
-    assert(vkCreateInstance(&vkIci, nullptr, &vk_instance) == VK_SUCCESS);
+    VkInstance vkInstance;
+    assert(vkCreateInstance(&vkIci, nullptr, &vkInstance) == VK_SUCCESS);
 
     // 创建 Surface
     VkXlibSurfaceCreateInfoKHR vSci{
-            VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+            VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
             nullptr,
             0,
-            sdl_sysWMinfo.info.x11.display,
-            sdl_sysWMinfo.info.x11.window
+            sdlSysWMinfo.info.x11.display,
+            sdlSysWMinfo.info.x11.window
     };
+    VkSurfaceKHR vkSurface;
+    assert(vkCreateXlibSurfaceKHR(vkInstance, &vSci, nullptr, &vkSurface) == VK_SUCCESS);
 
     // 设备相关
-    uint32_t num_devices = 8;
-    assert(vkEnumeratePhysicalDevices(vk_instance, &num_devices, nullptr) == VK_SUCCESS);
-    vector<VkPhysicalDevice> vk_physical_devices(num_devices);
-    assert(vkEnumeratePhysicalDevices(vk_instance, &num_devices, &vk_physical_devices[0]) == VK_SUCCESS);
+    uint32_t numDevices = 8;
+    assert(vkEnumeratePhysicalDevices(vkInstance, &numDevices, nullptr) == VK_SUCCESS);
+    vector<VkPhysicalDevice> vkPhysicalDevices(numDevices);
+    assert(vkEnumeratePhysicalDevices(vkInstance, &numDevices, &vkPhysicalDevices[0]) == VK_SUCCESS);
 
-    int32_t vk_physical_device_index = -1;
-    int32_t vk_queue_family_propertie_index = -1;
-    for (u_int32_t i = 0; i < num_devices; ++i) {
-        VkPhysicalDeviceProperties vk_physical_device_properties;
-        VkPhysicalDeviceFeatures vk_physical_device_features;
-        vkGetPhysicalDeviceProperties(vk_physical_devices[i], &vk_physical_device_properties);
-        vkGetPhysicalDeviceFeatures(vk_physical_devices[i], &vk_physical_device_features);
-        if (vk_physical_device_properties.limits.maxImageDimension2D < 4096 &&
-            VK_VERSION_MAJOR(vk_physical_device_properties.apiVersion) < 1) {
-            cout << vk_physical_device_properties.deviceName << "不支持" << endl;
+    Uint32 vkPhysicalDeviceIndex = UINT32_MAX;
+    Uint32 vkGraphicsQueueFamilyIndex = UINT32_MAX;
+    Uint32 vkPresentQueueFamilyIndex = UINT32_MAX;
+    for (Uint32 i = 0; i < numDevices; ++i) {
+        VkPhysicalDeviceProperties vkPhysicalDeviceProperties;
+        VkPhysicalDeviceFeatures vkPhysicalDeviceFeatures;
+        vkGetPhysicalDeviceProperties(vkPhysicalDevices[i], &vkPhysicalDeviceProperties);
+        vkGetPhysicalDeviceFeatures(vkPhysicalDevices[i], &vkPhysicalDeviceFeatures);
+        if (vkPhysicalDeviceProperties.limits.maxImageDimension2D < 4096 &&
+            VK_VERSION_MAJOR(vkPhysicalDeviceProperties.apiVersion) < 1) {
+            cout << vkPhysicalDeviceProperties.deviceName << "不支持" << endl;
             continue;
         }
 
-        u_int32_t queue_families_count = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_devices[i], &queue_families_count, nullptr);
-        vector<VkQueueFamilyProperties> vk_queue_family_properties(queue_families_count);
-        vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_devices[i], &queue_families_count,
-                                                 &vk_queue_family_properties[0]);
-        for (u_int32_t j = 0; j < queue_families_count; ++j) {
-            if (vk_queue_family_properties[j].queueCount > 0 &&
-                vk_queue_family_properties[j].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                vk_queue_family_propertie_index = j;
-                break;
+        Uint32 queueFamiliesCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevices[i], &queueFamiliesCount, nullptr);
+        vector<VkQueueFamilyProperties> vkQueueFamilyProperties(queueFamiliesCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevices[i], &queueFamiliesCount,
+                                                 &vkQueueFamilyProperties[0]);
+        vector<VkBool32> queueSupport(queueFamiliesCount);
+        Uint32 graphicsQueueFamilyIndex = UINT32_MAX, presentQueueFamilyIndex = UINT32_MAX;
+        bool isFound = false;
+        for (Uint32 j = 0; j < queueFamiliesCount; ++j) {
+            vkGetPhysicalDeviceSurfaceSupportKHR(vkPhysicalDevices[i], j, vkSurface, &queueSupport[j]);
+            if (vkQueueFamilyProperties[j].queueCount > 0 &&
+                vkQueueFamilyProperties[j].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                if (graphicsQueueFamilyIndex == UINT32_MAX)
+                    graphicsQueueFamilyIndex = j;
+                if (queueSupport[j]) {
+                    vkGraphicsQueueFamilyIndex = j;
+                    vkPresentQueueFamilyIndex = j;
+                    isFound = true;
+                    break;
+                }
             }
         }
-        vk_physical_device_index = i;
+
+        if (!isFound) {
+            for (Uint32 j = 0; j < queueFamiliesCount; ++j) {
+                if (queueSupport[j]) {
+                    presentQueueFamilyIndex = j;
+                    break;
+                }
+            }
+        }
+
+        assert(!(graphicsQueueFamilyIndex == UINT32_MAX && presentQueueFamilyIndex == UINT32_MAX));
+
+        vkGraphicsQueueFamilyIndex = graphicsQueueFamilyIndex;
+        vkPresentQueueFamilyIndex = presentQueueFamilyIndex;
+
+        vkPhysicalDeviceIndex = i;
     }
-    assert(vk_physical_device_index >= 0);
+    assert(vkPhysicalDeviceIndex != UINT32_MAX);
 
     // 检查设备扩展
-    u_int32_t device_extensions_count = 0;
-    assert(vkEnumerateDeviceExtensionProperties(vk_physical_devices[vk_physical_device_index], nullptr,
-                                                &device_extensions_count, nullptr) == VK_SUCCESS &&
-           extensions_count != 0);
-    vector<VkExtensionProperties> vk_device_extension_properties(device_extensions_count);
-    assert(vkEnumerateDeviceExtensionProperties(vk_physical_devices[vk_physical_device_index], nullptr,
-                                                &device_extensions_count, &vk_device_extension_properties[0]) ==
-           VK_SUCCESS && extensions_count != 0);
-    vector<const char *> device_extensions = {
+    Uint32 deviceExtensionsCount = 0;
+    assert(vkEnumerateDeviceExtensionProperties(vkPhysicalDevices[vkPhysicalDeviceIndex], nullptr,
+                                                &deviceExtensionsCount, nullptr) == VK_SUCCESS &&
+           extensionsCount != 0);
+    vector<VkExtensionProperties> vkDeviceExtensionProperties(deviceExtensionsCount);
+    assert(vkEnumerateDeviceExtensionProperties(vkPhysicalDevices[vkPhysicalDeviceIndex], nullptr,
+                                                &deviceExtensionsCount, &vkDeviceExtensionProperties[0]) ==
+           VK_SUCCESS && extensionsCount != 0);
+    vector<const char *> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
-    for (auto &extension : device_extensions) {
-        for (auto &vk_extension_propertie : vk_device_extension_properties) {
-            if (strcmp(vk_extension_propertie.extensionName, extension) == 0)
+    for (auto &extension : deviceExtensions) {
+        for (auto &vkExtensionPropertie : vkDeviceExtensionProperties) {
+            if (strcmp(vkExtensionPropertie.extensionName, extension) == 0)
                 break;
         }
     }
 
+    vector<VkDeviceQueueCreateInfo> vDqcis;
+    vector<float> queuePriorities = {1.0f};
+    vDqcis.push_back({
+                             VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                             nullptr,
+                             0,
+                             vkGraphicsQueueFamilyIndex,
+                             static_cast<uint32_t>(queuePriorities.size()),
+                             &queuePriorities[0]
+                     });
+    if (vkGraphicsQueueFamilyIndex != vkPresentQueueFamilyIndex) {
+        vDqcis.push_back({
+                                 VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                                 nullptr,
+                                 0,
+                                 vkPresentQueueFamilyIndex,
+                                 static_cast<uint32_t>(queuePriorities.size()),
+                                 &queuePriorities[0]
+                         });
+    }
 
-
-    vector<float> queue_priorities = {1.0f};
-    VkDeviceQueueCreateInfo vDqci{
-            VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-            nullptr,
-            0,
-            static_cast<uint32_t>(vk_queue_family_propertie_index),
-            static_cast<uint32_t>(queue_priorities.size()),
-            &queue_priorities[0]
-    };
     VkDeviceCreateInfo vDci{
             VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             nullptr,
             0,
-            1,
-            &vDqci,
+            static_cast<uint32_t>(vDqcis.size()),
+            &vDqcis[0],
             0,
             nullptr,
-            0,
-            nullptr,
+            static_cast<uint32_t>(deviceExtensions.size()),
+            &deviceExtensions[0],
             nullptr
     };
-    VkDevice vk_device;
-    assert(vkCreateDevice(vk_physical_devices[vk_physical_device_index], &vDci, nullptr, &vk_device) == VK_SUCCESS);
 
-    VkQueue vk_queue;
-    vkGetDeviceQueue(vk_device, static_cast<uint32_t>(vk_queue_family_propertie_index), 0, &vk_queue);
+    VkDevice vkDevice;
+    assert(vkCreateDevice(vkPhysicalDevices[vkPhysicalDeviceIndex], &vDci, nullptr, &vkDevice) == VK_SUCCESS);
 
-    VkSurfaceKHR vk_surface;
-    assert(vkCreateXlibSurfaceKHR(vk_instance, &vSci, nullptr, &vk_surface) == VK_SUCCESS);
+    VkQueue vkQueue;
+    vkGetDeviceQueue(vkDevice, vkGraphicsQueueFamilyIndex, 0, &vkQueue);
 
+    VkSemaphoreCreateInfo vShci{
+            VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+            nullptr,
+            0
+    };
 
-    if (vk_device != VK_NULL_HANDLE) {
-        vkDeviceWaitIdle(vk_device);
-        vkDestroyDevice(vk_device, nullptr);
+    VkSemaphore imageAvailableSemaphore, renderFinishSemaphore;
+    assert(vkCreateSemaphore(vkDevice, &vShci, nullptr, &imageAvailableSemaphore) == VK_SUCCESS);
+    assert(vkCreateSemaphore(vkDevice, &vShci, nullptr, &renderFinishSemaphore) == VK_SUCCESS);
+
+    VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
+    assert(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkPhysicalDevices[vkPhysicalDeviceIndex], vkSurface,
+                                                     &surfaceCapabilitiesKHR) == VK_SUCCESS);
+
+    Uint32 formatsCount;
+    assert(vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevices[vkPhysicalDeviceIndex], vkSurface, &formatsCount,
+                                                nullptr) == VK_SUCCESS);
+    vector<VkSurfaceFormatKHR> vkSurfaceFormats(formatsCount);
+    assert(vkGetPhysicalDeviceSurfaceFormatsKHR(vkPhysicalDevices[vkPhysicalDeviceIndex], vkSurface, &formatsCount,
+                                                &vkSurfaceFormats[0]) == VK_SUCCESS);
+
+    // 查找可用的 present mode 并选择
+    Uint32 presentModesCount;
+    assert(vkGetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevices[vkPhysicalDeviceIndex], vkSurface,
+                                                     &presentModesCount,
+                                                     nullptr) == VK_SUCCESS);
+    vector<VkPresentModeKHR> vkPresentModes(presentModesCount);
+    assert(vkGetPhysicalDeviceSurfacePresentModesKHR(vkPhysicalDevices[vkPhysicalDeviceIndex], vkSurface,
+                                                     &presentModesCount,
+                                                     &vkPresentModes[0]) == VK_SUCCESS);
+    VkPresentModeKHR vkPresentMode;
+    for (auto &mode : vkPresentModes) {
+        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) vkPresentMode = mode;
+    }
+    if (vkPresentMode != VK_PRESENT_MODE_MAILBOX_KHR) {
+        for (auto &mode : vkPresentModes) {
+            if (mode == VK_PRESENT_MODE_MAILBOX_KHR) vkPresentMode = mode;
+        }
     }
 
-    if (vk_instance != VK_NULL_HANDLE) {
-        vkDestroyInstance(vk_instance, nullptr);
+
+    Uint32 imageCount = surfaceCapabilitiesKHR.minImageCount + 1;
+    if (surfaceCapabilitiesKHR.maxImageCount > 0 && imageCount > surfaceCapabilitiesKHR.maxImageCount) {
+        imageCount = surfaceCapabilitiesKHR.maxImageCount;
+    }
+
+    VkSwapchainKHR vkOldSwapchain = VK_NULL_HANDLE;
+    VkSwapchainCreateInfoKHR vSwci{
+            VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+            nullptr,
+            0,
+            vkSurface,
+            imageCount,
+            vkSurfaceFormats[0].format,
+            vkSurfaceFormats[0].colorSpace,
+            surfaceCapabilitiesKHR.currentExtent,
+            1,
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            VK_SHARING_MODE_EXCLUSIVE,
+            0,
+            nullptr,
+            surfaceCapabilitiesKHR.currentTransform,
+            VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+            vkPresentMode,
+            VK_TRUE,
+            vkOldSwapchain
+    };
+
+    VkSwapchainKHR vkSwapchain;
+    assert(vkCreateSwapchainKHR(vkDevice, &vSwci, nullptr, &vkSwapchain));
+
+    if (vkOldSwapchain != VK_NULL_HANDLE) vkDestroySwapchainKHR(vkDevice, vkOldSwapchain, nullptr);
+
+
+    cout << "创建交换链成功" << endl;
+    
+
+    if (vkSwapchain != VK_NULL_HANDLE) {
+        vkDestroySwapchainKHR(vkDevice, vkSwapchain, nullptr);
+    }
+
+    if (vkDevice != VK_NULL_HANDLE) {
+        vkDeviceWaitIdle(vkDevice);
+        vkDestroyDevice(vkDevice, nullptr);
+    }
+
+    if (vkInstance != VK_NULL_HANDLE) {
+        vkDestroyInstance(vkInstance, nullptr);
     }
 
 }
