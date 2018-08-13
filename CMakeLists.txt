@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 project(Vulkan_Tutorials)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 11)
 
 link_libraries(libvulkan.so libSDL2.so libX11.so)
 

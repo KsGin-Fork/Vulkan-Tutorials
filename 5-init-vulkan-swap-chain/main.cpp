@@ -2,15 +2,18 @@
 // Created by ksgin on 18-8-3.
 //
 
-#define VK_USE_PLATFORM_XLIB_KHR
 
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_syswm.h>
+#include <SDL2/SDL_vulkan.h>
+
+#define VK_USE_PLATFORM_XCB_KHR
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #include <assert.h>
 #include <vector>
 #include <cstring>
 #include <iostream>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_syswm.h>
 
 using namespace std;
 const char *title = "init vulkan swap chain";
@@ -30,28 +33,10 @@ int main() {
 
     // 实例相关操作
     Uint32 extensionsCount = 0;
-    assert(vkEnumerateInstanceExtensionProperties(nullptr, &extensionsCount, nullptr) == VK_SUCCESS &&
-           extensionsCount != 0);
-    vector<VkExtensionProperties> vkExtensionProperties(extensionsCount);
-    assert(vkEnumerateInstanceExtensionProperties(nullptr, &extensionsCount, &vkExtensionProperties[0]) ==
-           VK_SUCCESS && extensionsCount != 0);
-
-    vector<const char *> extensions{
-            VK_KHR_SURFACE_EXTENSION_NAME,
-            VK_KHR_XLIB_SURFACE_EXTENSION_NAME
-    };
-
-
-    for (auto &extension : extensions) {
-        auto check = ([extension, vkExtensionProperties]() -> bool {
-            for (auto &vkExtensionPropertie : vkExtensionProperties) {
-                if (strcmp(vkExtensionPropertie.extensionName, extension) == 0)
-                    return true;
-            }
-            return false;
-        }());
-        assert(check);
-    }
+    assert(SDL_Vulkan_GetInstanceExtensions(window, &extensionsCount, nullptr));
+    vector<const char *> extensions(extensionsCount);
+    extensions[0] = VK_KHR_SURFACE_EXTENSION_NAME,
+            assert(SDL_Vulkan_GetInstanceExtensions(window, &extensionsCount, &extensions[1]));
 
     VkApplicationInfo vkApplicationInfo{
             VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -78,15 +63,8 @@ int main() {
     assert(vkCreateInstance(&vkInstanceCreateInfo, nullptr, &vkInstance) == VK_SUCCESS);
 
     // 创建 Surface
-    VkXlibSurfaceCreateInfoKHR vkXlibSurfaceCreateInfo{
-            VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-            nullptr,
-            0,
-            sdlSysWMinfo.info.x11.display,
-            sdlSysWMinfo.info.x11.window
-    };
     VkSurfaceKHR vkSurface;
-    assert(vkCreateXlibSurfaceKHR(vkInstance, &vkXlibSurfaceCreateInfo, nullptr, &vkSurface) == VK_SUCCESS);
+    assert(SDL_Vulkan_CreateSurface(window, vkInstance, &vkSurface) == true);
 
     // 设备相关
     uint32_t numDevices = 8;
@@ -120,8 +98,11 @@ int main() {
             vkGetPhysicalDeviceSurfaceSupportKHR(vkPhysicalDevices[i], j, vkSurface, &queueSupport[j]);
             if (vkQueueFamilyProperties[j].queueCount > 0 &&
                 vkQueueFamilyProperties[j].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                if (graphicsQueueFamilyIndex == UINT32_MAX)
+                if (graphicsQueueFamilyIndex == UINT32_MAX) {
+                    vkPresentQueueFamilyIndex = j;
                     graphicsQueueFamilyIndex = j;
+                }
+
                 if (queueSupport[j]) {
                     vkGraphicsQueueFamilyIndex = j;
                     vkPresentQueueFamilyIndex = j;
